@@ -43,6 +43,10 @@ namespace PDTools.SimulatorInterface
         /// </summary>
         public event SimulatorDelegate OnReceive;
 
+        public delegate void RawDataDelagate(byte[] data);
+
+        public event RawDataDelagate OnRawData;
+
         public bool Started { get; private set; }
         public SimulatorInterfaceGameType SimulatorGameType { get; private set; }
 
@@ -109,6 +113,9 @@ namespace PDTools.SimulatorInterface
 
                 if (result.Buffer.Length != 0x128)
                     throw new InvalidDataException($"Expected packet size to be 0x128. Was {result.Buffer.Length:X4} bytes.");
+
+                if(OnRawData != null)
+                    OnRawData(result.Buffer);
 
                 _cryptor.Decrypt(result.Buffer);
 
