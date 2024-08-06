@@ -43,6 +43,10 @@ namespace PDTools.SimulatorInterface
         /// </summary>
         public event SimulatorDelegate OnReceive;
 
+        public delegate void RawDataDelagate(byte[] data);
+
+        public event RawDataDelagate OnRawData;
+
         public bool Started { get; private set; }
         public SimulatorInterfaceGameType SimulatorGameType { get; private set; }
 
