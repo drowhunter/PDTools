@@ -45,7 +45,14 @@ namespace PDTools.SimulatorInterfaceTestTool
             else if (gt6)
                 type = SimulatorInterfaceGameType.GT6;
 
+            
+            
             SimulatorInterfaceClient simInterface = new SimulatorInterfaceClient(args[0], type);
+
+
+            // Connect to simhub udp forwarded telemetry port
+            //var simInterface = new SimulatorInterfaceClient(IPAddress.Loopback.ToString(), type, 33741);
+
             simInterface.OnReceive += SimInterface_OnReceive;
 
             var cts = new CancellationTokenSource();
