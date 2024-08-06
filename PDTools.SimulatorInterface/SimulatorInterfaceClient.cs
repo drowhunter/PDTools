@@ -50,8 +50,10 @@ namespace PDTools.SimulatorInterface
         /// Creates a new simulator interface.
         /// </summary>
         /// <param name="address">Target address.</param>
+        /// <param name="gameType">The game type</param>
+        /// <param name="bindingPortOverride">alternative port to recieve the telemetry</param>
         /// <exception cref="ArgumentException"></exception>
-        public SimulatorInterfaceClient(string address, SimulatorInterfaceGameType gameType)
+        public SimulatorInterfaceClient(string address, SimulatorInterfaceGameType gameType, int? bindingPortOverride = null)
         {
             if (!IPAddress.TryParse(address, out IPAddress addr))
                 throw new ArgumentException("Could not parse IP Address.");
@@ -60,13 +62,13 @@ namespace PDTools.SimulatorInterface
             {
                 case SimulatorInterfaceGameType.GT7:
                     ReceivePort = ReceivePortGT7;
-                    BindPort = BindPortGT7;
+                    BindPort = bindingPortOverride ?? BindPortGT7;
                     break;
 
                 case SimulatorInterfaceGameType.GT6:
                 case SimulatorInterfaceGameType.GTSport:
                     ReceivePort = ReceivePortDefault;
-                    BindPort = BindPortDefault;
+                    BindPort = bindingPortOverride ?? BindPortDefault;
                     break;
 
                 default:
@@ -98,9 +100,13 @@ namespace PDTools.SimulatorInterface
             // Will send a packet per tick - 60fps
             while (true)
             {
-                if ((DateTime.UtcNow - _lastSentHeartbeat).TotalSeconds > SendDelaySeconds)
+                if (new[] { BindPortGT7, BindPortDefault }.Contains(BindPort) && (DateTime.UtcNow - _lastSentHeartbeat).TotalSeconds > SendDelaySeconds)
+                {
+                    //send heartbeat every ten seconds only if connected to an actual playstation
                     await SendHeartbeat(token);
-
+                }
+                
+                
 #if NET6_0_OR_GREATER
                 UdpReceiveResult result = await _udpClient.ReceiveAsync(token);
 #else
@@ -110,16 +116,21 @@ namespace PDTools.SimulatorInterface
                 if (result.Buffer.Length != 0x128)
                     throw new InvalidDataException($"Expected packet size to be 0x128. Was {result.Buffer.Length:X4} bytes.");
 
+                if (OnRawData != null)
+                    OnRawData(result.Buffer);
+
                 _cryptor.Decrypt(result.Buffer);
 
                 SimulatorPacket packet = new SimulatorPacket();
                 packet.SetPacketInfo(SimulatorGameType, result.RemoteEndPoint, DateTimeOffset.Now);
                 packet.Read(result.Buffer);
+                
 
                 if (token.IsCancellationRequested)
                     token.ThrowIfCancellationRequested();
-
-                this.OnReceive(packet);
+                
+                if(OnReceive != null)
+                    this.OnReceive(packet);
 
                 if (token.IsCancellationRequested)
                     token.ThrowIfCancellationRequested();
